@@ -3,8 +3,11 @@
 //
 //   sap-run     easy — greedy for the obvious sweet move, with enough
 //               randomness to stay beatable
-//   sugarmaker  hard — minimax with alpha-beta pruning, 12 plies deep
-//               (Kalah is cheap to search), still well under ~300ms
+//   sugarmaker  hard — minimax with alpha-beta pruning, iteratively
+//               deepened from 6 up to 12 plies under a time budget: the
+//               floor pass always completes (a few ms), deeper passes run
+//               only while the clock allows, so even a slow phone answers
+//               inside the promised ~300ms
 
 import { legalMoves, describeMove, getStatus, STORE, ownPits } from './engine.js';
 
@@ -43,14 +46,43 @@ function sapRun(state, moves, rng) {
 
 /* =========================== Sugarmaker =========================== */
 
-const DEPTH = 12; // plies; branching factor ≤ 6 and alpha-beta prunes hard
+const MIN_DEPTH = 6;  // this pass always runs to completion — a few ms
+const MAX_DEPTH = 12; // plies; branching factor ≤ 6 and alpha-beta prunes hard
+const TIME_BUDGET_MS = 250;
+
+// Search bookkeeping for the time budget. The clock lives here in bot.js —
+// the engine itself stays clock-free and pure.
+let deadline = 0;
+let abortable = false;
+let aborted = false;
+let nodeCount = 0;
+
+function now() {
+  return (typeof performance !== 'undefined' ? performance : Date).now();
+}
 
 function sugarmaker(state) {
+  deadline = now() + TIME_BUDGET_MS;
+  let best = null;
+  for (let depth = MIN_DEPTH; depth <= MAX_DEPTH; depth++) {
+    abortable = depth > MIN_DEPTH;
+    aborted = false;
+    nodeCount = 0;
+    const move = rootSearch(state, depth);
+    if (aborted) break; // out of time mid-pass: keep the previous depth's answer
+    best = move;
+    if (now() >= deadline) break;
+  }
+  return best;
+}
+
+function rootSearch(state, depth) {
   const me = state.current;
   let best = null;
   let alpha = -Infinity;
   for (const { move, fx } of orderedMoves(state)) {
-    const value = search(fx.state, DEPTH - 1, alpha, Infinity, me);
+    const value = search(fx.state, depth - 1, alpha, Infinity, me);
+    if (aborted) break;
     if (value > alpha) {
       alpha = value;
       best = move;
@@ -60,6 +92,11 @@ function sugarmaker(state) {
 }
 
 function search(state, depth, alpha, beta, me) {
+  if (abortable && (++nodeCount & 1023) === 0 && now() >= deadline) {
+    aborted = true;
+  }
+  if (aborted) return 0; // value is discarded once aborted
+
   const status = getStatus(state);
   if (status.over) {
     // Won games score by margin; finishing sooner (higher depth left) is
@@ -74,6 +111,7 @@ function search(state, depth, alpha, beta, me) {
   let value = maximizing ? -Infinity : Infinity;
   for (const { fx } of orderedMoves(state)) {
     const v = search(fx.state, depth - 1, alpha, beta, me);
+    if (aborted) return 0;
     if (maximizing) {
       value = Math.max(value, v);
       alpha = Math.max(alpha, value);

@@ -147,12 +147,13 @@ button { font-family: inherit; border: none; cursor: pointer; }
 }
 #howto b { color: var(--amber); }
 
-#credit {
+#credit, #credit-go {
   padding: 14px 0 calc(env(safe-area-inset-bottom, 0px) + 14px);
   font-size: 12px;
   color: var(--cream-dim);
+  text-align: center;
 }
-#credit a { color: var(--amber); text-decoration: none; font-weight: 700; }
+#credit a, #credit-go a { color: var(--amber); text-decoration: none; font-weight: 700; }
 
 /* ---------------------------------------------------------------- game */
 
@@ -165,8 +166,8 @@ button { font-family: inherit; border: none; cursor: pointer; }
   padding: 2px 2px 8px;
 }
 #menuBtn, #mute {
-  flex: 0 0 40px;
-  height: 40px;
+  flex: 0 0 44px;
+  height: 44px;
   border-radius: 12px;
   font-size: 18px;
   color: var(--cream);
