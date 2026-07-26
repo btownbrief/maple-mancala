@@ -103,7 +103,10 @@ button { font-family: inherit; border: none; cursor: pointer; }
   letter-spacing: 0.06em;
   color: #3a2005;
   background: linear-gradient(180deg, var(--amber-hot), var(--amber));
-  box-shadow: 0 5px 0 #9c6414, 0 8px 18px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.45),
+    0 5px 0 #9c6414,
+    0 8px 18px rgba(0, 0, 0, 0.35);
 }
 .big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #9c6414; }
 
@@ -123,7 +126,10 @@ button { font-family: inherit; border: none; cursor: pointer; }
   letter-spacing: 0.05em;
   color: var(--cream);
   background: linear-gradient(180deg, var(--plank), var(--plank-deep));
-  box-shadow: 0 4px 0 var(--carve), 0 6px 14px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 224, 170, 0.3),
+    0 4px 0 var(--carve),
+    0 6px 14px rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,19 +204,23 @@ button { font-family: inherit; border: none; cursor: pointer; }
   gap: 10px;
   max-width: 440px;
   width: 100%;
-  margin: 0 auto;
+  margin: 0 auto 14px;
   padding: 12px;
   border-radius: 26px;
   background:
     repeating-linear-gradient(94deg,
       rgba(74, 44, 19, 0.10) 0 2px, transparent 2px 26px,
       rgba(74, 44, 19, 0.16) 26px 27px, transparent 27px 61px),
-    linear-gradient(180deg, var(--plank), var(--plank-deep));
+    linear-gradient(180deg, #c08a4c, var(--plank) 30%, var(--plank-deep));
+  /* a thick slab: lit top face, solid wood side, soft ground shadow */
   box-shadow:
     inset 0 0 0 3px rgba(74, 44, 19, 0.55),
-    inset 0 6px 18px rgba(255, 220, 160, 0.22),
-    inset 0 -8px 20px rgba(36, 22, 8, 0.4),
-    0 10px 30px rgba(0, 0, 0, 0.5);
+    inset 0 10px 20px rgba(255, 224, 170, 0.3),
+    inset 0 -10px 22px rgba(36, 22, 8, 0.45),
+    0 9px 0 -2px #6b4020,
+    0 14px 0 -3px #452709,
+    0 26px 34px rgba(0, 0, 0, 0.6);
+  transform: perspective(1100px) rotateX(3.5deg);
   min-height: 0;
 }
 
@@ -247,14 +257,17 @@ button { font-family: inherit; border: none; cursor: pointer; }
   width: min(24vw, 96px, calc(16.6cqh - 9px));
   height: min(24vw, 96px, calc(16.6cqh - 9px));
   border-radius: 50%;
+  /* a carved bowl lit from above: near wall in shadow, far wall catching light */
   background:
-    radial-gradient(circle at 50% 42%, #2a1706 0 58%, #3d2410 72%, #5c3a1a 100%);
+    radial-gradient(circle at 50% 20%, rgba(0, 0, 0, 0.55), transparent 62%),
+    radial-gradient(circle at 50% 72%, #2f1b0a 0 40%, #241204 62%, #4a2c13 84%, #7a4e24 100%);
   box-shadow:
-    inset 0 8px 14px rgba(0, 0, 0, 0.75),
-    inset 0 -3px 6px rgba(255, 205, 140, 0.16),
-    0 2px 3px rgba(255, 220, 160, 0.25),
-    0 -1px 2px rgba(36, 22, 8, 0.6);
-  border: 3px solid rgba(92, 58, 26, 0.9);
+    inset 0 14px 16px -4px rgba(0, 0, 0, 0.9),
+    inset 0 -10px 14px -6px rgba(255, 205, 140, 0.3),
+    inset 0 0 0 3px rgba(58, 33, 12, 0.9),
+    0 2px 2px rgba(255, 224, 170, 0.4),
+    0 -2px 3px rgba(30, 17, 5, 0.75);
+  border: none;
   touch-action: none;
 }
 .pit.pop { animation: pitpop 0.22s ease-out; }
@@ -271,17 +284,19 @@ button { font-family: inherit; border: none; cursor: pointer; }
 }
 .pit.flash { animation: flash 0.42s ease-in-out; }
 @keyframes flash {
-  0%, 100% { box-shadow: inset 0 8px 14px rgba(0, 0, 0, 0.75); }
-  50% { box-shadow: inset 0 0 22px rgba(255, 201, 102, 0.95), 0 0 18px rgba(255, 201, 102, 0.8); }
+  0%, 100% { filter: none; }
+  50% { filter: brightness(1.9) drop-shadow(0 0 14px rgba(255, 201, 102, 0.9)); }
 }
 
 /* whose side is live: their buckets get a warm rim */
 body:not(.turn-north) .pit.south,
 .turn-north .pit.north {
-  border-color: rgba(232, 161, 60, 0.85);
   box-shadow:
-    inset 0 8px 14px rgba(0, 0, 0, 0.75),
-    0 0 12px rgba(232, 161, 60, 0.28);
+    inset 0 14px 16px -4px rgba(0, 0, 0, 0.9),
+    inset 0 -10px 14px -6px rgba(255, 205, 140, 0.3),
+    inset 0 0 0 3px rgba(232, 161, 60, 0.8),
+    0 2px 2px rgba(255, 224, 170, 0.4),
+    0 0 14px rgba(232, 161, 60, 0.3);
 }
 
 /* landing preview: pulsing amber ring on the pit the last drop hits */
@@ -304,13 +319,31 @@ body:not(.turn-north) .pit.south,
   height: 21%;
   border-radius: 50% 50% 50% 44%;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle at 34% 30%, #ffd98a 0 18%, var(--candy) 55%, #7d3f0d 100%);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  background: radial-gradient(circle at 32% 26%, #ffe9b8 0 12%, #f0a944 36%, var(--candy) 60%, #6f3608 100%);
+  box-shadow:
+    0 4px 5px -1px rgba(0, 0, 0, 0.65),
+    inset -2px -3px 4px rgba(80, 35, 4, 0.6),
+    inset 2px 3px 3px rgba(255, 236, 190, 0.5);
 }
-.drop.pop { animation: droppop 0.26s ease-out; }
+.drop::after {
+  content: '';
+  position: absolute;
+  left: 20%;
+  top: 12%;
+  width: 32%;
+  height: 24%;
+  border-radius: 50%;
+  transform: rotate(-20deg);
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0));
+}
+/* no two candies pour quite alike */
+.drop:nth-child(3n) { border-radius: 54% 46% 52% 48% / 48% 54% 46% 52%; }
+.drop:nth-child(4n + 1) { border-radius: 47% 53% 45% 55% / 55% 46% 54% 45%; }
+.drop.pop { animation: droppop 0.3s ease-out; }
 @keyframes droppop {
-  0% { transform: translate(-50%, -160%) scale(1.25); opacity: 0.4; }
-  70% { transform: translate(-50%, -46%) scale(1.05); opacity: 1; }
+  0% { transform: translate(-50%, -180%) scale(1.25); opacity: 0.35; }
+  55% { transform: translate(-50%, -42%) scale(1.08, 0.9); opacity: 1; }
+  78% { transform: translate(-50%, -54%) scale(0.96, 1.05); }
   100% { transform: translate(-50%, -50%) scale(1); }
 }
 
@@ -322,13 +355,15 @@ body:not(.turn-north) .pit.south,
   height: 22px;
   padding: 0 5px;
   border-radius: 11px;
-  background: var(--carve);
+  background: linear-gradient(180deg, #5c3717, var(--carve));
   color: var(--cream);
   font-size: 12px;
   font-weight: 900;
   line-height: 22px;
   text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 224, 170, 0.3),
+    0 2px 4px rgba(0, 0, 0, 0.55);
   pointer-events: none;
 }
 .pit.empty .count { opacity: 0.55; }
@@ -339,23 +374,29 @@ body:not(.turn-north) .pit.south,
 .store {
   flex: 0 0 clamp(58px, 10dvh, 84px);
   border-radius: 20px;
+  /* a long carved trough, same light as the buckets */
   background:
-    radial-gradient(120% 160% at 50% 20%, #2a1706 0 55%, #3d2410 80%, #5c3a1a 100%);
+    linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 45%),
+    radial-gradient(140% 200% at 50% 90%, #2f1b0a 0 45%, #241204 68%, #4a2c13 88%, #7a4e24 100%);
   box-shadow:
-    inset 0 8px 16px rgba(0, 0, 0, 0.7),
-    inset 0 -3px 6px rgba(255, 205, 140, 0.14),
-    0 2px 3px rgba(255, 220, 160, 0.22);
-  border: 3px solid rgba(92, 58, 26, 0.9);
+    inset 0 14px 18px -6px rgba(0, 0, 0, 0.9),
+    inset 0 -9px 14px -7px rgba(255, 205, 140, 0.28),
+    inset 0 0 0 3px rgba(58, 33, 12, 0.9),
+    0 2px 2px rgba(255, 224, 170, 0.35),
+    0 -2px 3px rgba(30, 17, 5, 0.7);
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.25s, box-shadow 0.25s;
+  transition: box-shadow 0.25s;
 }
 .store.active {
-  border-color: var(--amber);
   box-shadow:
-    inset 0 8px 16px rgba(0, 0, 0, 0.7),
-    0 0 16px rgba(232, 161, 60, 0.4);
+    inset 0 14px 18px -6px rgba(0, 0, 0, 0.9),
+    inset 0 -9px 14px -7px rgba(255, 205, 140, 0.28),
+    inset 0 0 0 3px rgba(232, 161, 60, 0.85),
+    0 2px 2px rgba(255, 224, 170, 0.35),
+    0 0 18px rgba(232, 161, 60, 0.4);
 }
 .store-inner {
   display: flex;
@@ -408,7 +449,10 @@ body:not(.turn-north) .pit.south,
     linear-gradient(180deg, var(--plank), var(--plank-deep));
   box-shadow:
     inset 0 0 0 3px rgba(74, 44, 19, 0.55),
-    0 16px 44px rgba(0, 0, 0, 0.6);
+    inset 0 8px 16px rgba(255, 224, 170, 0.25),
+    0 8px 0 -2px #6b4020,
+    0 13px 0 -3px #452709,
+    0 24px 48px rgba(0, 0, 0, 0.65);
   display: flex;
   flex-direction: column;
   gap: 12px;
