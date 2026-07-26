@@ -1,0 +1,440 @@
+/* MAPLE MANCALA — a Btown Games production */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bark: #33200f;
+  --bark-2: #241608;
+  --plank: #b07a3f;
+  --plank-deep: #8f5a25;
+  --carve: #4a2c13;
+  --amber: #e8a13c;
+  --amber-hot: #ffc966;
+  --candy: #d47f1f;
+  --cream: #f6ead2;
+  --cream-dim: #d9c6a2;
+  --leaf: #c9502f;
+}
+
+html, body {
+  height: 100%;
+  overscroll-behavior: none;
+  background: var(--bark);
+  color: var(--cream);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+#app { position: fixed; inset: 0; overflow: hidden; }
+
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hidden { display: none !important; }
+
+button { font-family: inherit; border: none; cursor: pointer; }
+
+/* ---------------------------------------------------------------- menu */
+
+#menu {
+  align-items: center;
+  justify-content: space-between;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(232, 161, 60, 0.14), transparent 60%),
+    var(--bark);
+  padding: calc(env(safe-area-inset-top, 0px) + 5vh) 24px 0;
+  text-align: center;
+}
+
+.menu-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
+}
+
+#logo { line-height: 1.02; margin-bottom: 4px; }
+#logo .l-maple {
+  display: block;
+  font-size: clamp(26px, 4.6vh, 40px);
+  font-weight: 800;
+  letter-spacing: 0.28em;
+  color: var(--leaf);
+}
+#logo .l-mancala {
+  display: block;
+  font-size: clamp(44px, 8.2vh, 76px);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, var(--amber-hot), var(--candy));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.25);
+}
+
+#tagline {
+  font-size: clamp(13px, 1.9vh, 16px);
+  color: var(--cream-dim);
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+
+.big-btn {
+  width: 100%;
+  padding: 16px 20px;
+  border-radius: 16px;
+  font-size: clamp(17px, 2.4vh, 21px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: #3a2005;
+  background: linear-gradient(180deg, var(--amber-hot), var(--amber));
+  box-shadow: 0 5px 0 #9c6414, 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+.big-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #9c6414; }
+
+.mode-sub {
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--cream-dim);
+  margin: -8px 0 2px;
+}
+
+.wood-btn {
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 14px;
+  font-size: clamp(15px, 2.1vh, 18px);
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--cream);
+  background: linear-gradient(180deg, var(--plank), var(--plank-deep));
+  box-shadow: 0 4px 0 var(--carve), 0 6px 14px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.wood-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--carve); }
+.btn-sub { font-size: 11px; font-weight: 700; color: rgba(246, 234, 210, 0.75); letter-spacing: 0.04em; }
+
+#howto {
+  font-size: clamp(12px, 1.7vh, 14px);
+  color: var(--cream-dim);
+  line-height: 1.5;
+  max-width: 340px;
+  margin-top: 6px;
+}
+#howto b { color: var(--amber); }
+
+#credit {
+  padding: 14px 0 calc(env(safe-area-inset-bottom, 0px) + 14px);
+  font-size: 12px;
+  color: var(--cream-dim);
+}
+#credit a { color: var(--amber); text-decoration: none; font-weight: 700; }
+
+/* ---------------------------------------------------------------- game */
+
+#game { padding: calc(env(safe-area-inset-top, 0px) + 6px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px); }
+
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 2px 8px;
+}
+#menuBtn, #mute {
+  flex: 0 0 40px;
+  height: 40px;
+  border-radius: 12px;
+  font-size: 18px;
+  color: var(--cream);
+  background: rgba(246, 234, 210, 0.1);
+}
+#toast {
+  flex: 1;
+  text-align: center;
+  font-size: clamp(13px, 1.9vh, 16px);
+  font-weight: 800;
+  color: var(--amber-hot);
+  min-height: 20px;
+}
+#toast.pop { animation: tpop 0.25s ease-out; }
+@keyframes tpop {
+  0% { transform: scale(0.75); }
+  60% { transform: scale(1.07); }
+  100% { transform: scale(1); }
+}
+.mode-pass.turn-north #toast { transform: rotate(180deg); }
+.mode-pass.turn-north #toast.pop { animation-name: tpop-flip; }
+@keyframes tpop-flip {
+  0% { transform: rotate(180deg) scale(0.75); }
+  60% { transform: rotate(180deg) scale(1.07); }
+  100% { transform: rotate(180deg) scale(1); }
+}
+
+/* -------------------------------------------------------------- board */
+/* The maple plank: warm wood with faint grain streaks, carved edge. */
+
+#board {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 440px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 12px;
+  border-radius: 26px;
+  background:
+    repeating-linear-gradient(94deg,
+      rgba(74, 44, 19, 0.10) 0 2px, transparent 2px 26px,
+      rgba(74, 44, 19, 0.16) 26px 27px, transparent 27px 61px),
+    linear-gradient(180deg, var(--plank), var(--plank-deep));
+  box-shadow:
+    inset 0 0 0 3px rgba(74, 44, 19, 0.55),
+    inset 0 6px 18px rgba(255, 220, 160, 0.22),
+    inset 0 -8px 20px rgba(36, 22, 8, 0.4),
+    0 10px 30px rgba(0, 0, 0, 0.5);
+  min-height: 0;
+}
+
+#pitgrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 1fr;
+  gap: 6px 14vw;
+  align-items: center;
+  justify-items: center;
+  min-height: 0;
+  position: relative;
+  container-type: size; /* lets the buckets size themselves to fit 6 rows */
+}
+/* faint maple leaf carved down the spine of the plank */
+#pitgrid::before {
+  content: '🍁';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 42px;
+  opacity: 0.18;
+  filter: grayscale(35%);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ buckets */
+/* Each pit is a sap bucket carved into the plank: dark inside, worn rim. */
+
+.pit {
+  position: relative;
+  width: min(24vw, 96px, calc(16.6cqh - 9px));
+  height: min(24vw, 96px, calc(16.6cqh - 9px));
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 42%, #2a1706 0 58%, #3d2410 72%, #5c3a1a 100%);
+  box-shadow:
+    inset 0 8px 14px rgba(0, 0, 0, 0.75),
+    inset 0 -3px 6px rgba(255, 205, 140, 0.16),
+    0 2px 3px rgba(255, 220, 160, 0.25),
+    0 -1px 2px rgba(36, 22, 8, 0.6);
+  border: 3px solid rgba(92, 58, 26, 0.9);
+  touch-action: none;
+}
+.pit.pop { animation: pitpop 0.22s ease-out; }
+@keyframes pitpop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+.pit.lift { animation: lift 0.3s ease-out; }
+@keyframes lift {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.pit.flash { animation: flash 0.42s ease-in-out; }
+@keyframes flash {
+  0%, 100% { box-shadow: inset 0 8px 14px rgba(0, 0, 0, 0.75); }
+  50% { box-shadow: inset 0 0 22px rgba(255, 201, 102, 0.95), 0 0 18px rgba(255, 201, 102, 0.8); }
+}
+
+/* whose side is live: their buckets get a warm rim */
+body:not(.turn-north) .pit.south,
+.turn-north .pit.north {
+  border-color: rgba(232, 161, 60, 0.85);
+  box-shadow:
+    inset 0 8px 14px rgba(0, 0, 0, 0.75),
+    0 0 12px rgba(232, 161, 60, 0.28);
+}
+
+/* landing preview: pulsing amber ring on the pit the last drop hits */
+.pit.land, .store.land {
+  outline: 3px solid var(--amber-hot);
+  outline-offset: 3px;
+  animation: landpulse 0.9s ease-in-out infinite;
+}
+@keyframes landpulse {
+  0%, 100% { outline-color: rgba(255, 201, 102, 1); }
+  50% { outline-color: rgba(255, 201, 102, 0.35); }
+}
+
+.drops { position: absolute; inset: 0; pointer-events: none; }
+
+/* maple-candy drops: glossy amber beads */
+.drop {
+  position: absolute;
+  width: 21%;
+  height: 21%;
+  border-radius: 50% 50% 50% 44%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 34% 30%, #ffd98a 0 18%, var(--candy) 55%, #7d3f0d 100%);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+.drop.pop { animation: droppop 0.26s ease-out; }
+@keyframes droppop {
+  0% { transform: translate(-50%, -160%) scale(1.25); opacity: 0.4; }
+  70% { transform: translate(-50%, -46%) scale(1.05); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+
+.pit .count {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: var(--carve);
+  color: var(--cream);
+  font-size: 12px;
+  font-weight: 900;
+  line-height: 22px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+.pit.empty .count { opacity: 0.55; }
+
+/* ------------------------------------------------------------- stores */
+/* The big buckets — one per player, parked at that player's end. */
+
+.store {
+  flex: 0 0 clamp(58px, 10dvh, 84px);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 160% at 50% 20%, #2a1706 0 55%, #3d2410 80%, #5c3a1a 100%);
+  box-shadow:
+    inset 0 8px 16px rgba(0, 0, 0, 0.7),
+    inset 0 -3px 6px rgba(255, 205, 140, 0.14),
+    0 2px 3px rgba(255, 220, 160, 0.22);
+  border: 3px solid rgba(92, 58, 26, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.store.active {
+  border-color: var(--amber);
+  box-shadow:
+    inset 0 8px 16px rgba(0, 0, 0, 0.7),
+    0 0 16px rgba(232, 161, 60, 0.4);
+}
+.store-inner {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 0 18px;
+}
+.mode-pass #storeN .store-inner { transform: rotate(180deg); }
+.store-name {
+  font-size: clamp(13px, 1.9dvh, 16px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--cream-dim);
+}
+.store.active .store-name { color: var(--amber-hot); }
+.store-count {
+  font-size: clamp(28px, 5dvh, 42px);
+  font-weight: 900;
+  color: var(--cream);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.store-count.pop { animation: tpop 0.25s ease-out; }
+.store-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: var(--amber);
+  text-transform: uppercase;
+  min-width: 64px;
+}
+
+/* ------------------------------------------------------------- result */
+
+#result {
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 11, 3, 0.55);
+  backdrop-filter: blur(3px);
+  padding: 24px;
+}
+#res-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 26px 22px;
+  border-radius: 24px;
+  text-align: center;
+  background:
+    repeating-linear-gradient(94deg,
+      rgba(74, 44, 19, 0.10) 0 2px, transparent 2px 30px),
+    linear-gradient(180deg, var(--plank), var(--plank-deep));
+  box-shadow:
+    inset 0 0 0 3px rgba(74, 44, 19, 0.55),
+    0 16px 44px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#res-title {
+  font-size: clamp(26px, 4.4vh, 34px);
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  color: var(--cream);
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+#res-score {
+  font-size: clamp(38px, 6.5vh, 54px);
+  font-weight: 900;
+  color: var(--amber-hot);
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35);
+}
+#res-line { font-size: 14px; color: var(--cream); opacity: 0.9; line-height: 1.45; }
+#brief-cta {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--cream);
+  text-decoration: none;
+  background: rgba(36, 22, 8, 0.35);
+  border-radius: 12px;
+  padding: 10px;
+}
+#brief-cta strong { color: var(--amber-hot); }

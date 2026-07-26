@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="plank" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b07a3f"/>
+      <stop offset="1" stop-color="#8f5a25"/>
+    </linearGradient>
+    <radialGradient id="candy" cx="0.35" cy="0.3" r="1">
+      <stop offset="0" stop-color="#ffd98a"/>
+      <stop offset="0.55" stop-color="#d47f1f"/>
+      <stop offset="1" stop-color="#7d3f0d"/>
+    </radialGradient>
+  </defs>
+  <!-- maple plank -->
+  <rect width="100" height="100" rx="22" fill="url(#plank)"/>
+  <rect x="3" y="3" width="94" height="94" rx="19" fill="none" stroke="#4a2c13" stroke-width="3" opacity="0.6"/>
+  <!-- grain -->
+  <path d="M10 26 q40 -5 80 0 M10 76 q40 5 80 0" stroke="#4a2c13" stroke-width="1.6" fill="none" opacity="0.35"/>
+  <!-- carved bucket pit -->
+  <circle cx="50" cy="58" r="27" fill="#2a1706"/>
+  <circle cx="50" cy="58" r="27" fill="none" stroke="#5c3a1a" stroke-width="4"/>
+  <circle cx="50" cy="58" r="24" fill="none" stroke="#000" stroke-width="4" opacity="0.35"/>
+  <!-- maple-candy drops -->
+  <circle cx="42" cy="52" r="8.5" fill="url(#candy)"/>
+  <circle cx="59" cy="55" r="8.5" fill="url(#candy)"/>
+  <circle cx="50" cy="67" r="8.5" fill="url(#candy)"/>
+  <circle cx="39.2" cy="49.4" r="2.4" fill="#ffe9bd"/>
+  <circle cx="56.2" cy="52.4" r="2.4" fill="#ffe9bd"/>
+  <circle cx="47.2" cy="64.4" r="2.4" fill="#ffe9bd"/>
+  <!-- maple leaf -->
+  <text x="50" y="31" font-size="26" text-anchor="middle">🍁</text>
+</svg>

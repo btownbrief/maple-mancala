@@ -1,0 +1,14 @@
+{
+  "name": "MAPLE MANCALA",
+  "short_name": "Maple Mancala",
+  "description": "Sow maple-candy drops around a sap-bucket board. A Btown Games production.",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#33200f",
+  "theme_color": "#33200f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icon-180.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

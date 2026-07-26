@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#33200f">
+<title>MAPLE MANCALA — Sow the Sweetness</title>
+<meta name="description" content="The ancient count-and-capture game, Vermont-ified: sap buckets, maple-candy drops, and a bot that thinks twelve moves deep. A Btown Games production from the BTown Brief.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MAPLE MANCALA — Sow the Sweetness">
+<meta property="og:description" content="Sap buckets, maple-candy drops, and a bot that thinks twelve moves deep. Burlington's take on the world's oldest board game.">
+<meta property="og:url" content="https://play.btownbrief.com/maple-mancala/">
+<meta property="og:image" content="https://play.btownbrief.com/maple-mancala/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://play.btownbrief.com/maple-mancala/og-image.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- Title screen -->
+  <div id="menu" class="screen">
+    <div class="menu-inner">
+      <div id="logo" aria-label="Maple Mancala">
+        <span class="l-maple">🍁 MAPLE</span>
+        <span class="l-mancala">MANCALA</span>
+      </div>
+      <div id="tagline">The world's oldest board game, Vermont-ified.<br>Sow maple-candy drops, fill your sap bucket,<br>out-sweeten your rival.</div>
+
+      <button id="resumeBtn" class="big-btn hidden">▶&nbsp; BACK TO THE BOARD</button>
+      <button id="passBtn" class="big-btn">🤝&nbsp; PASS THE PHONE</button>
+      <div class="mode-sub">two sugarmakers, one screen</div>
+      <button id="easyBtn" class="wood-btn">🌱&nbsp; SAP RUN <span class="btn-sub">easygoing bot</span></button>
+      <button id="hardBtn" class="wood-btn">🔥&nbsp; SUGARMAKER <span class="btn-sub">thinks 12 moves deep</span></button>
+
+      <div id="howto">
+        Tap one of your buckets to sow its drops around the board, one per
+        bucket. Land the last drop in your big bucket for a <b>free turn</b>;
+        land it in an empty bucket of yours to <b>capture</b> everything
+        across from it. Press &amp; hold to peek where your last drop lands.
+      </div>
+    </div>
+    <footer id="credit">
+      A Btown Games production · <a href="https://www.btownbrief.com" target="_blank" rel="noopener">Read the BTown Brief →</a>
+    </footer>
+  </div>
+
+  <!-- The board -->
+  <div id="game" class="screen hidden">
+    <div id="topbar">
+      <button id="menuBtn" aria-label="Back to menu">☰</button>
+      <div id="toast" aria-live="polite"></div>
+      <button id="mute" aria-label="Toggle sound">🔊</button>
+    </div>
+
+    <div id="board">
+      <div class="store" id="storeN">
+        <div class="store-inner">
+          <div class="store-name" id="nameN">North End</div>
+          <div class="store-count" id="countN">0</div>
+          <div class="store-tag" id="tagN"></div>
+        </div>
+      </div>
+
+      <div id="pitgrid"><!-- 12 sap buckets, built by main.js --></div>
+
+      <div class="store" id="storeS">
+        <div class="store-inner">
+          <div class="store-name" id="nameS">South End</div>
+          <div class="store-count" id="countS">0</div>
+          <div class="store-tag" id="tagS"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div id="result" class="screen hidden">
+    <div class="menu-inner">
+      <div id="res-card">
+        <div id="res-title">SWEET VICTORY</div>
+        <div id="res-score">24 – 24</div>
+        <div id="res-line"></div>
+        <button id="againBtn" class="big-btn">↻&nbsp; REMATCH</button>
+        <button id="resMenuBtn" class="wood-btn">☰&nbsp; MENU</button>
+        <a id="brief-cta" href="https://www.btownbrief.com" target="_blank" rel="noopener">
+          🗞️ Sweetest scoop in town.<br><strong>Read the BTown Brief →</strong>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

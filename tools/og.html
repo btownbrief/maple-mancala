@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<!-- Renders the og:image (1200x630) and apple-touch icon (180x180) with the
+     game's palette. Serve the repo locally and screenshot with headless
+     Chrome at the matching window size:
+       chrome --headless --screenshot=og-image.png --window-size=1200,630 \
+         "http://localhost:8000/tools/og.html"
+       chrome --headless --screenshot=icon-180.png --window-size=180,180 \
+         "http://localhost:8000/tools/og.html?icon" -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>html,body{margin:0;overflow:hidden;background:#33200f}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const icon = location.search.includes('icon');
+const W = icon ? 180 : 1200, H = icon ? 180 : 630;
+const c = document.getElementById('c');
+c.width = W; c.height = H;
+const ctx = c.getContext('2d');
+
+function rounded(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, r);
+}
+
+function plank(x, y, w, h, r) {
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, '#b07a3f');
+  g.addColorStop(1, '#8f5a25');
+  rounded(x, y, w, h, r);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.lineWidth = Math.max(3, h * 0.012);
+  ctx.strokeStyle = 'rgba(74,44,19,0.6)';
+  rounded(x + 4, y + 4, w - 8, h - 8, r - 4);
+  ctx.stroke();
+  // grain
+  ctx.strokeStyle = 'rgba(74,44,19,0.3)';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 5; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + 20, y + (h / 5) * i);
+    ctx.quadraticCurveTo(x + w / 2, y + (h / 5) * i + (i % 2 ? 8 : -8), x + w - 20, y + (h / 5) * i);
+    ctx.stroke();
+  }
+}
+
+function bucket(x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, 7);
+  ctx.fillStyle = '#2a1706';
+  ctx.fill();
+  ctx.lineWidth = r * 0.16;
+  ctx.strokeStyle = '#5c3a1a';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.86, 0, 7);
+  ctx.lineWidth = r * 0.14;
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.stroke();
+}
+
+function drop(x, y, r) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  g.addColorStop(0, '#ffd98a');
+  g.addColorStop(0.55, '#d47f1f');
+  g.addColorStop(1, '#7d3f0d');
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, 7);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(x - r * 0.35, y - r * 0.4, r * 0.24, 0, 7);
+  ctx.fillStyle = '#ffe9bd';
+  ctx.fill();
+}
+
+function leaf(x, y, size, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.font = `${size}px -apple-system, "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+  ctx.fillText('🍁', x, y);
+  ctx.restore();
+}
+
+if (icon) {
+  plank(0, 0, W, H, 40);
+  bucket(90, 104, 49);
+  drop(75, 93, 15.5);
+  drop(106, 99, 15.5);
+  drop(90, 120, 15.5);
+  leaf(90, 36, 46);
+} else {
+  // background
+  ctx.fillStyle = '#33200f';
+  ctx.fillRect(0, 0, W, H);
+  const glow = ctx.createRadialGradient(W / 2, 0, 60, W / 2, 0, 700);
+  glow.addColorStop(0, 'rgba(232,161,60,0.16)');
+  glow.addColorStop(1, 'rgba(232,161,60,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
+
+  // the plank with a row of buckets
+  plank(80, 330, 1040, 230, 40);
+  const pits = 6, r = 62;
+  for (let i = 0; i < pits; i++) {
+    const x = 190 + i * 165, y = 445;
+    bucket(x, y, r);
+    const n = [4, 4, 0, 4, 4, 4][i];
+    if (n) {
+      drop(x - 18, y - 14, 19);
+      drop(x + 20, y - 8, 19);
+      drop(x - 4, y + 20, 19);
+      drop(x + 2, y - 26, 16);
+    }
+  }
+  leaf(1055, 105, 84, 0.95);
+  leaf(140, 135, 56, 0.6);
+
+  // title
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#c9502f';
+  ctx.font = '800 52px -apple-system, "Segoe UI", Arial, sans-serif';
+  ctx.fillText('🍁 M A P L E', W / 2, 130);
+  const tg = ctx.createLinearGradient(0, 150, 0, 250);
+  tg.addColorStop(0, '#ffc966');
+  tg.addColorStop(1, '#d47f1f');
+  ctx.fillStyle = tg;
+  ctx.font = '900 128px -apple-system, "Segoe UI", Arial, sans-serif';
+  ctx.fillText('MANCALA', W / 2, 245);
+  ctx.fillStyle = '#d9c6a2';
+  ctx.font = '600 30px -apple-system, "Segoe UI", Arial, sans-serif';
+  ctx.fillText('Sow the sweetness — a Btown Games production', W / 2, 300);
+}
+</script>
+</body>
+</html>
