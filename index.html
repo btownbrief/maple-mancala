@@ -39,6 +39,19 @@
       <button id="easyBtn" class="wood-btn">🌱&nbsp; SAP RUN <span class="btn-sub">easygoing bot</span></button>
       <button id="hardBtn" class="wood-btn">🔥&nbsp; SUGARMAKER <span class="btn-sub">thinks 12 moves deep</span></button>
 
+      <div class="online-label">or tap buckets together — any two phones</div>
+      <div id="onlineRow">
+        <button class="wood-btn online-btn" id="hostBtn">
+          <span>🪣&nbsp; START A SAP CREW</span>
+          <span class="btn-sub">get a code for a friend</span>
+        </button>
+        <button class="wood-btn online-btn" id="joinBtn">
+          <span>🔑&nbsp; JOIN A SAP CREW</span>
+          <span class="btn-sub">enter their crew code</span>
+        </button>
+      </div>
+      <button id="rejoinBtn" class="wood-btn rejoin-btn hidden"></button>
+
       <div id="howto">
         Tap one of your buckets to sow its drops around the board, one per
         bucket. Land the last drop in your big bucket for a <b>free turn</b>;
@@ -46,6 +59,35 @@
         across from it. Press &amp; hold to peek where your last drop lands.
       </div>
     </div>
+
+    <!-- Online setup: name (+ code when joining) -->
+    <div id="onlinePanel" class="overlay hidden">
+      <div class="op-card">
+        <div id="opTitle" class="op-title">START A SAP CREW</div>
+        <label class="op-label" for="opName">YOUR NAME</label>
+        <input id="opName" maxlength="24" autocomplete="nickname" placeholder="Sugarmaker">
+        <div id="opCodeWrap" class="hidden">
+          <label class="op-label" for="opCode">CREW CODE</label>
+          <input id="opCode" maxlength="4" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="ABCD">
+        </div>
+        <div id="opError" class="op-error hidden"></div>
+        <div class="op-btns">
+          <button id="opCancel" class="wood-btn">BACK</button>
+          <button id="opGo" class="big-btn">TAP IN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Lobby: show the crew code while we wait for the friend -->
+    <div id="lobby" class="overlay hidden">
+      <div class="op-card">
+        <div class="op-title">READ THIS CODE TO YOUR FELLOW SUGARMAKER</div>
+        <div id="lobbyCode"></div>
+        <div id="lobbyHint">they open this game, tap <b>JOIN A SAP CREW</b>, and type it in</div>
+        <div class="op-btns"><button id="lobbyCancel" class="wood-btn">CALL IT OFF</button></div>
+      </div>
+    </div>
+
     <footer id="credit">
       A Btown Games production · <a href="https://play.btownbrief.com/" target="_blank" rel="noopener">More games →</a> · <a href="https://www.btownbrief.com" target="_blank" rel="noopener">Read the BTown Brief →</a>
     </footer>

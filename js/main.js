@@ -8,9 +8,11 @@ import {
   SOUTH, NORTH, STORE,
 } from './engine.js';
 import { chooseMove, LEVELS } from './bot.js';
+import { OnlineMatch, savedSession, clearSession, getName } from './rooms.js';
 
 const $ = (id) => document.getElementById(id);
 const LS_SAVE = 'maple-mancala.save';
+const GAME = 'maple-mancala';
 
 // Screen rows top→bottom: North's pits run up the left column, South's run
 // down the right one, so sowing flows in a loop around the board and each
@@ -20,11 +22,13 @@ const MAX_DOTS = 18; // drops drawn per pit before we let the number carry it
 
 let state = null;   // authoritative engine state
 let view = null;    // pit counts currently on screen (lags during animation)
-let mode = null;    // 'pass' | 'bot'
+let mode = null;    // 'pass' | 'bot' | 'online'
 let level = null;   // 'sap-run' | 'sugarmaker'
 let busy = false;   // an animation is running
 let session = 0;    // bumped on every new/left game to cancel stale animations
 let armed = -1;     // pit currently held down for the landing preview
+let online = null;  // { match, myPlayer } while in an online sap crew
+let pollErrors = 0;
 
 /* ============================== board DOM ============================== */
 
@@ -42,6 +46,22 @@ for (const [n, s] of ROWS) {
 }
 const storeEls = { [STORE[SOUTH]]: $('storeS'), [STORE[NORTH]]: $('storeN') };
 const countEls = { [STORE[SOUTH]]: $('countS'), [STORE[NORTH]]: $('countN') };
+
+// Pass-and-play keeps the original board and flips only North's top label.
+// Online, every phone instead lays out its own store and sowing path nearest
+// the bottom, with all labels upright.
+function setBoardPerspective(player = SOUTH) {
+  const rows = player === NORTH
+    ? ROWS.slice().reverse().map(([north, south]) => [south, north])
+    : ROWS;
+  for (const pair of rows) for (const pit of pair) grid.appendChild(pitEls[pit]);
+  const board = $('board');
+  if (player === NORTH) {
+    board.append(storeEls[STORE[SOUTH]], grid, storeEls[STORE[NORTH]]);
+  } else {
+    board.append(storeEls[STORE[NORTH]], grid, storeEls[STORE[SOUTH]]);
+  }
+}
 
 // Candy drops sit in a sunflower spiral so buckets fill naturally.
 const DOT_POS = [];
@@ -88,6 +108,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function playerName(player) {
   if (mode === 'pass') return player === SOUTH ? 'South End' : 'North End';
+  if (mode === 'online' && online) {
+    if (player === online.myPlayer) return 'You';
+    const opponent = online.match.seats.find((seat) => seat.seat === player);
+    return (opponent && opponent.name) || 'Other Sugarmaker';
+  }
   return player === SOUTH ? 'You' : LEVELS[level].name;
 }
 
@@ -101,6 +126,7 @@ const TURN_LINES = {
 
 function startGame(newMode, newLevel, resumed = null) {
   session += 1;
+  online = null;
   mode = newMode;
   level = newLevel;
   state = resumed || createInitialState();
@@ -109,6 +135,7 @@ function startGame(newMode, newLevel, resumed = null) {
   armed = -1;
 
   document.body.classList.toggle('mode-pass', mode === 'pass');
+  setBoardPerspective(SOUTH);
   $('nameS').textContent = playerName(SOUTH);
   $('nameN').textContent = mode === 'pass' ? 'North End'
     : `${LEVELS[level].name} ${level === 'sugarmaker' ? '🔥' : '🌱'}`;
@@ -126,13 +153,30 @@ function updateTurnUI() {
   storeEls[STORE[SOUTH]].classList.toggle('active', cur === SOUTH);
   storeEls[STORE[NORTH]].classList.toggle('active', cur === NORTH);
   document.body.classList.toggle('turn-north', cur === NORTH);
-  $('tagS').textContent = cur === SOUTH ? 'your turn' : '';
-  $('tagN').textContent = cur === NORTH ? (mode === 'pass' ? 'your turn' : 'thinking…') : '';
+  $('tagS').textContent = '';
+  $('tagN').textContent = '';
+  if (mode === 'online' && online) {
+    const mine = online.myPlayer;
+    const theirs = 1 - mine;
+    const opponent = online.match.opponents()[0];
+    if (cur === mine && online.match.status === 'playing') {
+      (mine === SOUTH ? $('tagS') : $('tagN')).textContent = 'your turn';
+    } else if (cur === theirs) {
+      (theirs === SOUTH ? $('tagS') : $('tagN')).textContent =
+        opponent && opponent.away ? 'away' : 'their turn';
+    }
+  } else {
+    $('tagS').textContent = cur === SOUTH ? 'your turn' : '';
+    $('tagN').textContent = cur === NORTH ? (mode === 'pass' ? 'your turn' : 'thinking…') : '';
+  }
 }
 
 function humanCanMoveNow() {
   return !busy && state && !getStatus(state).over
-    && (mode === 'pass' || state.current === SOUTH);
+    && (mode === 'pass'
+      || (mode === 'bot' && state.current === SOUTH)
+      || (mode === 'online' && online && online.match.status === 'playing'
+        && state.current === online.myPlayer));
 }
 
 async function play(move) {
@@ -142,6 +186,7 @@ async function play(move) {
   state = fx.state; // rules already settled; everything below is theater
   busy = true;
   clearPreview();
+  if (online) pushOnline(state); // publish while this phone performs the sowing theater
   saveGame();
 
   // Pick up the drops…
@@ -219,8 +264,14 @@ async function play(move) {
       ? `🔁 ${LEVELS[level].name} goes again…`
       : '✨ Sweet! Last drop in your bucket — go again');
   } else {
-    toast(mode === 'pass' ? TURN_LINES.pass(state.current)
-      : state.current === SOUTH ? TURN_LINES.you() : TURN_LINES.bot());
+    if (mode === 'pass') toast(TURN_LINES.pass(state.current));
+    else if (mode === 'online') {
+      toast(state.current === online.myPlayer
+        ? TURN_LINES.you()
+        : `${playerName(state.current)} is tapping a bucket…`);
+    } else {
+      toast(state.current === SOUTH ? TURN_LINES.you() : TURN_LINES.bot());
+    }
   }
   updateTurnUI();
   maybeBot();
@@ -237,13 +288,26 @@ function maybeBot() {
 }
 
 function finish(status) {
-  clearSave();
+  if (mode !== 'online') clearSave();
   const s = status.scores;
-  $('res-score').textContent = `${s[SOUTH]} – ${s[NORTH]}`;
+  $('againBtn').classList.remove('hidden');
+  $('res-score').textContent = mode === 'online'
+    ? `${s[online.myPlayer]} – ${s[1 - online.myPlayer]}`
+    : `${s[SOUTH]} – ${s[NORTH]}`;
   if (status.tie) {
     $('res-title').textContent = 'DEAD EVEN';
     $('res-line').textContent = 'Split the syrup 50/50, neighborly style.';
     sound.win();
+  } else if (mode === 'online') {
+    if (status.winner === online.myPlayer) {
+      $('res-title').textContent = 'SWEET VICTORY';
+      $('res-line').textContent = `You out-sweetened ${playerName(1 - online.myPlayer)}. Fancy Grade A stuff.`;
+      sound.win();
+    } else {
+      $('res-title').textContent = 'SUGARED OFF';
+      $('res-line').textContent = `${playerName(1 - online.myPlayer)} took the sugarhouse. Rematch?`;
+      sound.lose();
+    }
   } else if (mode === 'pass') {
     $('res-title').textContent = `${playerName(status.winner).toUpperCase()} WINS`;
     $('res-line').textContent = `${playerName(status.winner)} takes the sugarhouse. Loser stacks the cordwood.`;
@@ -326,9 +390,10 @@ function toast(msg) {
 
 /* ============================== save / resume ============================== */
 // The engine state is plain JSON — stash it whole, revive it whole. This is
-// the same serialization online multiplayer will ride on later.
+// the same serialization online multiplayer rides on.
 
 function saveGame() {
+  if (mode === 'online') return;
   if (getStatus(state).over) { clearSave(); return; }
   localStorage.setItem(LS_SAVE, JSON.stringify({ state, mode, level }));
 }
@@ -353,6 +418,314 @@ function loadSave() {
   }
 }
 
+/* ============================== online play ============================== */
+// Two phones share one plain engine state through the fleet rooms layer.
+// Seat 0 is South (the host and createInitialState()'s opening player);
+// seat 1 is North. Remote moves, rematches, and conflict truth repaint cold.
+
+const onlinePanel = $('onlinePanel');
+const opTitle = $('opTitle');
+const opName = $('opName');
+const opCodeWrap = $('opCodeWrap');
+const opCode = $('opCode');
+const opError = $('opError');
+const lobbyEl = $('lobby');
+const lobbyCode = $('lobbyCode');
+const rejoinBtn = $('rejoinBtn');
+let panelIntent = 'host';
+
+$('hostBtn').addEventListener('click', () => openPanel('host'));
+$('joinBtn').addEventListener('click', () => openPanel('join'));
+$('opCancel').addEventListener('click', closePanel);
+$('opGo').addEventListener('click', onlineGo);
+$('lobbyCancel').addEventListener('click', cancelLobby);
+rejoinBtn.addEventListener('click', rejoinCrew);
+opCode.addEventListener('input', () => {
+  opCode.value = opCode.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+});
+[opName, opCode].forEach((el) => el.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') onlineGo();
+}));
+
+function openPanel(intent) {
+  panelIntent = intent;
+  opTitle.textContent = intent === 'host' ? 'START A SAP CREW' : 'JOIN A SAP CREW';
+  $('opGo').textContent = intent === 'host' ? 'GET A CODE' : 'TAP IN';
+  opCodeWrap.classList.toggle('hidden', intent === 'host');
+  opError.classList.add('hidden');
+  opName.value = opName.value || getName();
+  onlinePanel.classList.remove('hidden');
+  (intent === 'join' && opName.value ? opCode : opName).focus();
+}
+
+function closePanel() {
+  onlinePanel.classList.add('hidden');
+}
+
+const FRIENDLY_ERRORS = {
+  not_found: 'No sap crew with that code — double-check the letters.',
+  room_full: 'That sugarhouse is already full.',
+  room_started: 'That crew already started tapping without you.',
+  not_ready: "Online play isn't switched on yet — check back soon!",
+  offline: "Can't reach the sugarhouse — are you online?",
+};
+
+function friendly(err) {
+  if (err && err.code === 'wrong_game') {
+    return `That code is for ${String(err.detail || 'another game').replace(/-/g, ' ')} — head there to use it.`;
+  }
+  return (err && FRIENDLY_ERRORS[err.code]) || 'The sap line got crossed — please try again.';
+}
+
+async function onlineGo() {
+  const name = opName.value.trim();
+  if (!name) {
+    opError.textContent = 'Every sugarmaker needs a name.';
+    opError.classList.remove('hidden');
+    opName.focus();
+    return;
+  }
+
+  const go = $('opGo');
+  go.disabled = true;
+  opError.classList.add('hidden');
+  try {
+    if (panelIntent === 'host') {
+      const match = await OnlineMatch.create({
+        game: GAME, name, state: createInitialState(), seats: 2,
+      });
+      closePanel();
+      openLobby(match);
+    } else {
+      const code = opCode.value.trim();
+      if (code.length !== 4) {
+        opError.textContent = 'The crew code is 4 letters.';
+        opError.classList.remove('hidden');
+        opCode.focus();
+        return;
+      }
+      const match = await OnlineMatch.join({ game: GAME, code, name });
+      closePanel();
+      enterOnlineGame(match);
+    }
+  } catch (err) {
+    opError.textContent = friendly(err);
+    opError.classList.remove('hidden');
+  } finally {
+    go.disabled = false;
+  }
+}
+
+function openLobby(match) {
+  lobbyCode.textContent = match.code;
+  lobbyEl.classList.remove('hidden');
+  match.start({
+    onStatus: (status) => {
+      if (status === 'playing') {
+        lobbyEl.classList.add('hidden');
+        enterOnlineGame(match);
+      }
+    },
+    onError: () => {}, // a waiting-room hiccup can resolve on the next poll
+  });
+  lobbyEl._match = match;
+}
+
+function cancelLobby() {
+  const match = lobbyEl._match;
+  if (match) match.leave();
+  lobbyEl._match = null;
+  lobbyEl.classList.add('hidden');
+  refreshRejoin();
+}
+
+async function rejoinCrew() {
+  rejoinBtn.disabled = true;
+  try {
+    const match = await OnlineMatch.resume({ game: GAME });
+    if (match.status === 'waiting') openLobby(match);
+    else enterOnlineGame(match);
+  } catch {
+    clearSession(GAME);
+    refreshRejoin();
+  } finally {
+    rejoinBtn.disabled = false;
+  }
+}
+
+function refreshRejoin() {
+  const saved = savedSession(GAME);
+  rejoinBtn.classList.toggle('hidden', !saved);
+  if (saved) rejoinBtn.textContent = `↩ REJOIN SAP CREW (${saved.code})`;
+}
+
+function updateOnlineNames() {
+  // Opponent names came from the room. Keep them in textContent only.
+  $('nameS').textContent = playerName(SOUTH);
+  $('nameN').textContent = playerName(NORTH);
+}
+
+function enterOnlineGame(match) {
+  session += 1;
+  mode = 'online';
+  level = null;
+  online = { match, myPlayer: match.seat };
+  pollErrors = 0;
+  state = match.state;
+  view = state.pits.slice();
+  busy = false;
+  armed = -1;
+  document.body.classList.remove('mode-pass');
+  setBoardPerspective(online.myPlayer);
+  updateOnlineNames();
+  onlinePanel.classList.add('hidden');
+  lobbyEl.classList.add('hidden');
+  show('game');
+  renderAll();
+  updateTurnUI();
+  toast(state.current === online.myPlayer
+    ? 'Your buckets are ready — you tap first 🍁'
+    : `${playerName(state.current)} is tapping first 🍁`);
+  match.start({
+    onState: onRemoteState,
+    onStatus: onRemoteStatus,
+    onPresence: onRemotePresence,
+    onError: onPollError,
+  });
+  if (match.status === 'over' && !getStatus(state).over) onRemoteStatus('over');
+  else if (getStatus(state).over) finish(getStatus(state));
+}
+
+function rebuildOnlineBoard() {
+  session += 1; // cancel any local sowing animation before accepting room truth
+  busy = false;
+  armed = -1;
+  clearPreview();
+  for (const el of Object.values(pitEls)) el.classList.remove('lift', 'flash');
+  view = state.pits.slice();
+  setBoardPerspective(online.myPlayer);
+  updateOnlineNames();
+  show('game');
+  renderAll();
+  const status = getStatus(state);
+  if (status.over) finish(status);
+  else updateTurnUI();
+}
+
+function onRemoteState(newState) {
+  state = newState;
+  rebuildOnlineBoard();
+}
+
+function onRemoteStatus(status) {
+  if (status !== 'over' || getStatus(state).over) return;
+  const opponent = online && online.match.opponents()[0];
+  if (!opponent || !opponent.left) return;
+  session += 1;
+  busy = false;
+  $('res-title').textContent = 'SAP CREW ENDED';
+  $('res-score').textContent =
+    `${state.pits[STORE[online.myPlayer]]} – ${state.pits[STORE[1 - online.myPlayer]]}`;
+  $('res-line').textContent = `${opponent.name || 'Your fellow sugarmaker'} left the sugarhouse.`;
+  $('againBtn').classList.add('hidden');
+  show('result');
+}
+
+function onRemotePresence(opponents) {
+  if (!online) return;
+  updateOnlineNames();
+  const opponent = opponents[0];
+  if (opponent && opponent.left) $('againBtn').classList.add('hidden');
+  if (!busy && pollErrors === 0 && !getStatus(state).over) updateTurnUI();
+}
+
+function onPollError(err) {
+  if (err && err.code === 'not_found') {
+    if (online) online.match.stop();
+    clearSession(GAME);
+    online = null;
+    mode = null;
+    document.body.classList.remove('turn-north');
+    setBoardPerspective(SOUTH);
+    show('menu');
+    return;
+  }
+  pollErrors += 1;
+  if (pollErrors >= 3 && !getStatus(state).over) {
+    toast('Sap line is shaky — hang tight…');
+  }
+}
+
+async function pushOnline(attemptedState) {
+  const activeOnline = online;
+  try {
+    await activeOnline.match.push(attemptedState, { over: getStatus(attemptedState).over });
+    pollErrors = 0;
+  } catch (err) {
+    if (err && err.code === 'version_conflict') {
+      state = activeOnline.match.state;
+      rebuildOnlineBoard();
+      return;
+    }
+    // One calm retry. If room truth changed meanwhile, discard this attempt.
+    setTimeout(async () => {
+      if (online !== activeOnline || state !== attemptedState) return;
+      try {
+        await activeOnline.match.push(attemptedState, { over: getStatus(attemptedState).over });
+        pollErrors = 0;
+      } catch (retryErr) {
+        onPollError(retryErr);
+      }
+    }, 1500);
+  }
+}
+
+async function onlineRematch() {
+  if (!online) return;
+  const fresh = createInitialState();
+  state = fresh;
+  rebuildOnlineBoard();
+  try {
+    await online.match.push(fresh, {});
+    pollErrors = 0;
+    updateTurnUI();
+  } catch (err) {
+    if (err && err.code === 'version_conflict') {
+      state = online.match.state;
+      rebuildOnlineBoard();
+    } else {
+      onPollError(err);
+    }
+  }
+}
+
+function backToMenu(button) {
+  if (!online) {
+    show('menu');
+    return;
+  }
+  if (button.dataset.armed !== '1') {
+    button.dataset.armed = '1';
+    button.dataset.originalLabel = button.textContent;
+    button.textContent = 'LEAVE SAP CREW?';
+    setTimeout(() => {
+      if (button.dataset.armed !== '1') return;
+      button.dataset.armed = '';
+      button.textContent = button.dataset.originalLabel;
+    }, 2500);
+    return;
+  }
+  const match = online.match;
+  online = null;
+  mode = null;
+  match.leave();
+  button.dataset.armed = '';
+  button.textContent = button.dataset.originalLabel;
+  document.body.classList.remove('turn-north');
+  setBoardPerspective(SOUTH);
+  show('menu');
+}
+
 /* ============================== screens ============================== */
 
 function show(id) {
@@ -361,6 +734,7 @@ function show(id) {
     session += 1; // stop any animation still running behind the menu
     busy = false;
     $('resumeBtn').classList.toggle('hidden', !loadSave());
+    refreshRejoin();
   }
 }
 
@@ -371,9 +745,12 @@ $('resumeBtn').addEventListener('click', () => {
   const save = loadSave();
   if (save) startGame(save.mode, save.level, save.state);
 });
-$('menuBtn').addEventListener('click', () => show('menu'));
-$('againBtn').addEventListener('click', () => startGame(mode, level));
-$('resMenuBtn').addEventListener('click', () => show('menu'));
+$('menuBtn').addEventListener('click', () => backToMenu($('menuBtn')));
+$('againBtn').addEventListener('click', () => {
+  if (online) onlineRematch();
+  else startGame(mode, level);
+});
+$('resMenuBtn').addEventListener('click', () => backToMenu($('resMenuBtn')));
 
 $('mute').addEventListener('click', () => {
   sound.unlock();
