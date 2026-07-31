@@ -19,7 +19,7 @@ class SoundEngine {
       this.master.gain.value = this.muted ? 0 : 0.8;
       this.master.connect(this.ctx.destination);
     }
-    if (this.ctx.state === 'suspended') this.ctx.resume();
+    if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
   }
 
   toggleMute() {
@@ -37,7 +37,8 @@ class SoundEngine {
     osc.type = type;
     osc.frequency.setValueAtTime(freq, t);
     if (glide) osc.frequency.exponentialRampToValueAtTime(freq + glide, t + dur);
-    gain.gain.setValueAtTime(vol, t);
+    gain.gain.setValueAtTime(0.001, t);
+    gain.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.01, dur / 3));
     gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
     osc.connect(gain).connect(this.master);
     osc.start(t);
@@ -60,9 +61,10 @@ class SoundEngine {
     [523, 659, 784, 1047].forEach((f, i) => this.tone(f, { at: i * 0.06, dur: 0.14, vol: 0.4 }));
   }
 
-  extraTurn() {
-    this.tone(660, { dur: 0.1, vol: 0.4 });
-    this.tone(880, { at: 0.09, dur: 0.16, vol: 0.4 });
+  extraTurn(chain = 1) {
+    const lift = Math.min(chain - 1, 3) * 90;
+    this.tone(620 + lift, { dur: 0.1, vol: 0.38 });
+    this.tone(820 + lift, { at: 0.09, dur: 0.16, vol: 0.4 });
   }
 
   win() {
@@ -71,6 +73,12 @@ class SoundEngine {
 
   lose() {
     [330, 262, 196].forEach((f, i) => this.tone(f, { at: i * 0.16, dur: 0.28, vol: 0.4, type: 'sine' }));
+  }
+
+  tie() {
+    this.tone(392, { dur: 0.28, vol: 0.32 });
+    this.tone(523, { at: 0.12, dur: 0.32, vol: 0.32 });
+    this.tone(392, { at: 0.25, dur: 0.35, vol: 0.28 });
   }
 }
 

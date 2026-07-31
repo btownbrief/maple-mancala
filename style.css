@@ -195,6 +195,83 @@ button { font-family: inherit; border: none; cursor: pointer; }
   100% { transform: rotate(180deg) scale(1); }
 }
 
+/* First-visit action cue. It sits above the board, so it never covers a pit. */
+#previewHint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: min(100%, 420px);
+  margin: 0 auto 7px;
+  padding: 7px 9px 7px 12px;
+  border: 1px solid rgba(255, 201, 102, 0.45);
+  border-radius: 12px;
+  color: var(--cream);
+  background: rgba(74, 44, 19, 0.9);
+  font-size: 12px;
+  line-height: 1.25;
+  text-align: center;
+}
+#previewHint button {
+  flex: 0 0 auto;
+  padding: 6px 8px;
+  border-radius: 8px;
+  color: var(--bark-2);
+  background: var(--amber-hot);
+  font-size: 10px;
+  font-weight: 900;
+}
+
+/* A compact race readout. Thirteen is a visible marker, not a win rule. */
+#race {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: end;
+  gap: 7px;
+  width: min(100%, 420px);
+  margin: 0 auto 8px;
+  color: var(--cream-dim);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.race-side {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 6px;
+  min-width: 0;
+}
+.race-right { text-align: right; }
+.race-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.race-count { color: var(--cream); }
+.race-track {
+  grid-column: 1 / -1;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(246, 234, 210, 0.13);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.race-track i {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--candy), var(--amber-hot));
+}
+.race-left .race-track i { margin-left: auto; }
+.race-mark {
+  padding-bottom: 1px;
+  color: rgba(246, 234, 210, 0.55);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
 /* -------------------------------------------------------------- board */
 /* The maple plank: warm wood with faint grain streaks, carved edge. */
 
@@ -429,6 +506,70 @@ body:not(.turn-north) .pit.south,
   min-width: 64px;
 }
 
+/* ------------------------------------------------------- moment effects */
+
+#gameFx {
+  position: fixed;
+  inset: 0;
+  z-index: 24;
+  overflow: hidden;
+  pointer-events: none;
+}
+.capture-drop {
+  position: fixed;
+  width: 13px;
+  height: 13px;
+  border-radius: 50% 50% 50% 44%;
+  background: radial-gradient(circle at 32% 26%, #fff0c8 0 14%, #f0a944 38%, var(--candy) 66%, #6f3608 100%);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.55);
+  will-change: transform, opacity;
+}
+
+#momentBanner {
+  position: fixed;
+  left: 50%;
+  z-index: 25;
+  max-width: calc(100vw - 32px);
+  padding: 10px 19px;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--bark-2);
+  background: linear-gradient(180deg, #ffe19b, var(--amber));
+  box-shadow: 0 5px 0 #8f5c13, 0 10px 26px rgba(36, 22, 8, 0.5);
+  font-size: clamp(18px, 5vw, 25px);
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-align: center;
+  white-space: nowrap;
+}
+#momentBanner.capture {
+  top: 47%;
+  animation: captureBanner 0.9s cubic-bezier(0.3, 1.45, 0.5, 1) forwards;
+}
+#momentBanner.again {
+  top: 18%;
+  font-size: clamp(15px, 4.4vw, 21px);
+  animation: goAgainPop 1.05s cubic-bezier(0.3, 1.5, 0.5, 1) forwards;
+}
+#momentBanner.again.chain-2 { filter: brightness(1.08); }
+#momentBanner.again.chain-3 {
+  padding-inline: 24px;
+  filter: brightness(1.16) drop-shadow(0 0 10px rgba(255, 201, 102, 0.5));
+}
+.mode-pass.turn-north #momentBanner { --banner-turn: 180deg; }
+@keyframes captureBanner {
+  0% { transform: translate(-50%, -50%) rotate(var(--banner-turn, 0deg)) scale(0.45); opacity: 0; }
+  18%, 72% { transform: translate(-50%, -50%) rotate(var(--banner-turn, 0deg)) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -62%) rotate(var(--banner-turn, 0deg)) scale(0.94); opacity: 0; }
+}
+@keyframes goAgainPop {
+  0% { transform: translateX(-50%) rotate(var(--banner-turn, 0deg)) scale(0.3); opacity: 0; }
+  18% { transform: translateX(-50%) rotate(var(--banner-turn, 0deg)) scale(1.12); opacity: 1; }
+  30%, 75% { transform: translateX(-50%) rotate(var(--banner-turn, 0deg)) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -10px) rotate(var(--banner-turn, 0deg)) scale(0.92); opacity: 0; }
+}
+
 /* ------------------------------------------------------------- result */
 
 #result {
@@ -438,6 +579,7 @@ body:not(.turn-north) .pit.south,
   backdrop-filter: blur(3px);
   padding: 24px;
 }
+#result .menu-inner { position: relative; z-index: 1; }
 #res-card {
   width: 100%;
   max-width: 380px;
@@ -457,6 +599,11 @@ body:not(.turn-north) .pit.south,
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+#res-card.celebrate { animation: resultRise 0.45s cubic-bezier(0.3, 1.35, 0.5, 1); }
+@keyframes resultRise {
+  from { transform: translateY(24px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
 }
 #res-title {
   font-size: clamp(26px, 4.4vh, 34px);
@@ -483,6 +630,28 @@ body:not(.turn-north) .pit.south,
   padding: 10px;
 }
 #brief-cta strong { color: var(--amber-hot); }
+
+#mapleFlourish {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.flourish-leaf {
+  position: absolute;
+  left: var(--leaf-x);
+  top: 42%;
+  font-size: var(--leaf-size);
+  opacity: 0;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+  animation: mapleGust 1.45s ease-out var(--leaf-delay) forwards;
+}
+@keyframes mapleGust {
+  0% { transform: translate(-50%, 22vh) rotate(0deg) scale(0.35); opacity: 0; }
+  18% { opacity: 0.95; }
+  100% { transform: translate(calc(-50% + var(--leaf-drift)), -52vh) rotate(var(--leaf-spin)) scale(1); opacity: 0; }
+}
 
 /* ------------------------------------------------------------ online play */
 
@@ -621,8 +790,27 @@ body:not(.turn-north) .pit.south,
   #tagline { margin-bottom: 0; }
   #howto { margin-top: 1px; line-height: 1.35; }
   .online-label { margin-bottom: -5px; }
+  #previewHint { padding-block: 5px; margin-bottom: 5px; }
+  #race { margin-bottom: 5px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #lobbyCode { animation: none !important; }
+  #lobbyCode,
+  .pit.pop,
+  .pit.lift,
+  .pit.flash,
+  .drop.pop,
+  .store-count.pop,
+  #toast.pop,
+  #res-card.celebrate,
+  .flourish-leaf {
+    animation: none !important;
+  }
+  .pit.land, .store.land { animation: none !important; }
+  #momentBanner.capture,
+  #momentBanner.again {
+    animation: none !important;
+    transform: translate(-50%, -50%) rotate(var(--banner-turn, 0deg));
+    opacity: 1;
+  }
 }

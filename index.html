@@ -101,6 +101,29 @@
       <button id="mute" aria-label="Toggle sound">🔊</button>
     </div>
 
+    <div id="previewHint" class="hidden">
+      <span>Press &amp; hold a bucket to peek where its last drop lands.</span>
+      <button id="previewHintClose" aria-label="Dismiss landing preview hint">GOT IT</button>
+    </div>
+
+    <div id="race" aria-label="Progress toward the 13-drop marker">
+      <div class="race-side race-left">
+        <span class="race-label" id="raceLeftName">NORTH</span>
+        <span class="race-count" id="raceLeftCount">0 / 13</span>
+        <div class="race-track" id="raceLeftTrack" role="progressbar" aria-valuemin="0" aria-valuemax="13" aria-valuenow="0">
+          <i id="raceLeftFill"></i>
+        </div>
+      </div>
+      <span class="race-mark">13-DROP MARK</span>
+      <div class="race-side race-right">
+        <span class="race-count" id="raceRightCount">0 / 13</span>
+        <span class="race-label" id="raceRightName">SOUTH</span>
+        <div class="race-track" id="raceRightTrack" role="progressbar" aria-valuemin="0" aria-valuemax="13" aria-valuenow="0">
+          <i id="raceRightFill"></i>
+        </div>
+      </div>
+    </div>
+
     <div id="board">
       <div class="store" id="storeN">
         <div class="store-inner">
@@ -120,13 +143,17 @@
         </div>
       </div>
     </div>
+
+    <div id="gameFx" aria-hidden="true"></div>
+    <div id="momentBanner" aria-hidden="true"></div>
   </div>
 
   <!-- Game over -->
   <div id="result" class="screen hidden">
+    <div id="mapleFlourish" aria-hidden="true"></div>
     <div class="menu-inner">
       <div id="res-card">
-        <div id="res-title">SWEET VICTORY</div>
+        <div id="res-title" aria-live="polite">SWEET VICTORY</div>
         <div id="res-score">24 – 24</div>
         <div id="res-line"></div>
         <button id="againBtn" class="big-btn">↻&nbsp; REMATCH</button>

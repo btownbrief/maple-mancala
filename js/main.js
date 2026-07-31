@@ -12,7 +12,9 @@ import { OnlineMatch, savedSession, clearSession, getName } from './rooms.js';
 
 const $ = (id) => document.getElementById(id);
 const LS_SAVE = 'maple-mancala.save';
+const LS_PREVIEW_HINT = 'maple-mancala.preview-hint.v1';
 const GAME = 'maple-mancala';
+const RACE_MARK = 13;
 
 // Screen rows top→bottom: North's pits run up the left column, South's run
 // down the right one, so sowing flows in a loop around the board and each
@@ -29,6 +31,8 @@ let session = 0;    // bumped on every new/left game to cancel stale animations
 let armed = -1;     // pit currently held down for the landing preview
 let online = null;  // { match, myPlayer } while in an online sap crew
 let pollErrors = 0;
+let goAgainChain = 0;
+let racePlayers = [NORTH, SOUTH];
 
 /* ============================== board DOM ============================== */
 
@@ -61,6 +65,8 @@ function setBoardPerspective(player = SOUTH) {
   } else {
     board.append(storeEls[STORE[NORTH]], grid, storeEls[STORE[SOUTH]]);
   }
+  racePlayers = [1 - player, player];
+  renderRace();
 }
 
 // Candy drops sit in a sunflower spiral so buckets fill naturally.
@@ -75,6 +81,7 @@ function renderPit(pit, popped = false) {
   if (pit === STORE[SOUTH] || pit === STORE[NORTH]) {
     countEls[pit].textContent = view[pit];
     if (popped) rePop(countEls[pit]);
+    renderRace();
     return;
   }
   const el = pitEls[pit];
@@ -96,6 +103,27 @@ function renderAll() {
   for (let p = 0; p < 14; p++) renderPit(p);
 }
 
+function renderRace() {
+  if (!view) return;
+  const sides = [
+    ['Left', racePlayers[0]],
+    ['Right', racePlayers[1]],
+  ];
+  for (const [side, player] of sides) {
+    const score = view[STORE[player]];
+    const shown = Math.min(score, RACE_MARK);
+    const name = mode === 'bot'
+      ? (player === SOUTH ? 'YOU' : LEVELS[level].name.toUpperCase())
+      : (mode ? playerName(player).toUpperCase() : (player === SOUTH ? 'SOUTH' : 'NORTH'));
+    $(`race${side}Name`).textContent = name;
+    $(`race${side}Count`).textContent = `${score} / ${RACE_MARK}`;
+    $(`race${side}Fill`).style.width = `${(shown / RACE_MARK) * 100}%`;
+    const track = $(`race${side}Track`);
+    track.setAttribute('aria-valuenow', shown);
+    track.setAttribute('aria-valuetext', `${name}: ${score} drops; ${RACE_MARK}-drop marker`);
+  }
+}
+
 function rePop(el) {
   el.classList.remove('pop');
   void el.offsetWidth; // restart the animation
@@ -103,6 +131,139 @@ function rePop(el) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ============================== transient effects ============================== */
+
+let toastTimer = 0;
+let bannerTimer = 0;
+let flourishTimer = 0;
+
+function reducedMotion() {
+  return matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function clearTransientEffects() {
+  clearTimeout(toastTimer);
+  clearTimeout(bannerTimer);
+  clearTimeout(flourishTimer);
+  toastTimer = 0;
+  bannerTimer = 0;
+  flourishTimer = 0;
+  $('toast').textContent = '';
+  $('toast').classList.remove('pop');
+  $('previewHint').classList.add('hidden');
+  const banner = $('momentBanner');
+  banner.textContent = '';
+  banner.className = '';
+  const fxLayer = $('gameFx');
+  if (fxLayer.getAnimations) {
+    for (const animation of fxLayer.getAnimations()) animation.cancel();
+  }
+  fxLayer.replaceChildren();
+  $('mapleFlourish').replaceChildren();
+  $('res-card').classList.remove('celebrate');
+  for (const el of Object.values(pitEls)) el.classList.remove('lift', 'flash', 'pop', 'land');
+  for (const el of Object.values(storeEls)) el.classList.remove('land');
+  for (const el of Object.values(countEls)) el.classList.remove('pop');
+}
+
+function showMoment(text, kind, chain = 1) {
+  const banner = $('momentBanner');
+  clearTimeout(bannerTimer);
+  banner.className = '';
+  void banner.offsetWidth;
+  banner.textContent = text;
+  banner.classList.add(kind);
+  if (kind === 'again' && chain > 1) banner.classList.add(`chain-${Math.min(chain, 3)}`);
+  bannerTimer = setTimeout(() => {
+    banner.textContent = '';
+    banner.className = '';
+  }, kind === 'capture' ? 920 : 1080);
+}
+
+async function arcCapture(capture, mover, mySession) {
+  showMoment('🍯 CAPTURE!', 'capture');
+  if (reducedMotion()) {
+    await sleep(620);
+    return;
+  }
+
+  const target = storeEls[STORE[mover]].getBoundingClientRect();
+  const sources = [
+    pitEls[capture.pit].getBoundingClientRect(),
+    pitEls[capture.opposite].getBoundingClientRect(),
+  ];
+  const count = Math.min(capture.seeds, 18);
+  const flights = [];
+
+  for (let i = 0; i < count; i++) {
+    const source = sources[i === 0 ? 0 : 1];
+    const startX = source.left + source.width / 2 + ((i * 7) % 19) - 9;
+    const startY = source.top + source.height / 2 + ((i * 11) % 17) - 8;
+    const endX = target.left + target.width / 2 + ((i * 13) % 25) - 12;
+    const endY = target.top + target.height / 2 + ((i * 5) % 15) - 7;
+    const dx = endX - startX;
+    const dy = endY - startY;
+    const arc = Math.max(56, Math.hypot(dx, dy) * 0.24);
+    const drop = document.createElement('i');
+    drop.className = 'capture-drop';
+    drop.style.left = `${startX}px`;
+    drop.style.top = `${startY}px`;
+    $('gameFx').appendChild(drop);
+
+    if (!drop.animate) {
+      drop.remove();
+      continue;
+    }
+    const animation = drop.animate([
+      { transform: 'translate(-50%, -50%) scale(1)', opacity: 1 },
+      { transform: `translate(calc(-50% + ${dx * 0.5}px), calc(-50% + ${dy * 0.5 - arc}px)) scale(1.18)`, opacity: 1, offset: 0.52 },
+      { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.55)`, opacity: 0.35 },
+    ], {
+      duration: 390 + (i % 4) * 22,
+      delay: i * 14,
+      easing: 'cubic-bezier(0.35, 0.05, 0.65, 1)',
+      fill: 'forwards',
+    });
+    flights.push(animation.finished.catch(() => {}).finally(() => drop.remove()));
+  }
+
+  if (flights.length) await Promise.all(flights);
+  else await sleep(300);
+  if (session !== mySession) $('gameFx').replaceChildren();
+}
+
+function createMapleFlourish(mySession) {
+  if (reducedMotion()) return;
+  const layer = $('mapleFlourish');
+  layer.replaceChildren();
+  const colors = ['🍁', '🍂'];
+  for (let i = 0; i < 16; i++) {
+    const leaf = document.createElement('span');
+    leaf.className = 'flourish-leaf';
+    leaf.textContent = colors[i % colors.length];
+    leaf.style.setProperty('--leaf-x', `${8 + ((i * 37) % 84)}%`);
+    leaf.style.setProperty('--leaf-size', `${15 + (i % 4) * 4}px`);
+    leaf.style.setProperty('--leaf-delay', `${(i % 6) * 45}ms`);
+    leaf.style.setProperty('--leaf-drift', `${-80 + ((i * 53) % 160)}px`);
+    leaf.style.setProperty('--leaf-spin', `${-240 + ((i * 97) % 480)}deg`);
+    layer.appendChild(leaf);
+  }
+  flourishTimer = setTimeout(() => {
+    if (session === mySession) layer.replaceChildren();
+  }, 1800);
+}
+
+function showPreviewHintOnce() {
+  if (localStorage.getItem(LS_PREVIEW_HINT) === '1') return;
+  $('previewHint').classList.remove('hidden');
+}
+
+function dismissPreviewHint() {
+  if ($('previewHint').classList.contains('hidden')) return;
+  $('previewHint').classList.add('hidden');
+  localStorage.setItem(LS_PREVIEW_HINT, '1');
+}
 
 /* ============================== copy ============================== */
 
@@ -126,6 +287,7 @@ const TURN_LINES = {
 
 function startGame(newMode, newLevel, resumed = null) {
   session += 1;
+  clearTransientEffects();
   online = null;
   mode = newMode;
   level = newLevel;
@@ -133,6 +295,7 @@ function startGame(newMode, newLevel, resumed = null) {
   view = state.pits.slice();
   busy = false;
   armed = -1;
+  goAgainChain = 0;
 
   document.body.classList.toggle('mode-pass', mode === 'pass');
   setBoardPerspective(SOUTH);
@@ -144,7 +307,10 @@ function startGame(newMode, newLevel, resumed = null) {
   renderAll();
   updateTurnUI();
   saveGame();
-  if (!resumed) toast(mode === 'pass' ? 'South End taps first 🍁' : 'You go first 🍁');
+  if (!resumed) {
+    toast(mode === 'pass' ? 'South End taps first 🍁' : 'You go first 🍁');
+    showPreviewHintOnce();
+  }
   maybeBot();
 }
 
@@ -210,41 +376,49 @@ async function play(move) {
   }
 
   if (fx.capture) {
-    await sleep(300);
+    await sleep(180);
     if (session !== mySession) return;
-    pitEls[fx.capture.pit].classList.add('flash');
-    pitEls[fx.capture.opposite].classList.add('flash');
-    await sleep(420);
+    await arcCapture(fx.capture, mover, mySession);
     if (session !== mySession) return;
-    pitEls[fx.capture.pit].classList.remove('flash');
-    pitEls[fx.capture.opposite].classList.remove('flash');
     view[fx.capture.pit] = 0;
     view[fx.capture.opposite] = 0;
     view[STORE[mover]] += fx.capture.seeds;
     renderPit(fx.capture.pit);
     renderPit(fx.capture.opposite);
     renderPit(STORE[mover], true);
+    pitEls[fx.capture.pit].classList.add('flash');
+    pitEls[fx.capture.opposite].classList.add('flash');
     sound.capture();
     toast(`🍯 ${playerName(mover)} sugared off ${fx.capture.seeds} drops!`);
-    await sleep(700);
+    await sleep(420);
+    if (session !== mySession) return;
+    pitEls[fx.capture.pit].classList.remove('flash');
+    pitEls[fx.capture.opposite].classList.remove('flash');
+    await sleep(280);
     if (session !== mySession) return;
   }
 
   const status = getStatus(state);
+  const scoreBeforeSweep = [view[STORE[SOUTH]], view[STORE[NORTH]]];
 
   if (fx.sweep && fx.sweep.seeds > 0) {
     await sleep(400);
     if (session !== mySession) return;
     toast(`🧹 Board's tapped out — ${playerName(fx.sweep.player)} banks the rest`);
-    for (const p of ownPits(fx.sweep.player)) {
-      if (view[p] === 0) continue;
-      view[STORE[fx.sweep.player]] += view[p];
-      view[p] = 0;
-      renderPit(p);
-      renderPit(STORE[fx.sweep.player], true);
-      sound.plink(6);
-      await sleep(150);
-      if (session !== mySession) return;
+    if (reducedMotion()) {
+      view = state.pits.slice();
+      renderAll();
+    } else {
+      for (const p of ownPits(fx.sweep.player)) {
+        if (view[p] === 0) continue;
+        view[STORE[fx.sweep.player]] += view[p];
+        view[p] = 0;
+        renderPit(p);
+        renderPit(STORE[fx.sweep.player], true);
+        sound.plink(6);
+        await sleep(150);
+        if (session !== mySession) return;
+      }
     }
   }
 
@@ -254,16 +428,23 @@ async function play(move) {
   if (status.over) {
     await sleep(700);
     if (session !== mySession) return;
-    finish(status);
+    finish(status, { celebrate: true, scoreFrom: scoreBeforeSweep });
     return;
   }
 
   if (fx.extraTurn) {
-    sound.extraTurn();
+    goAgainChain += 1;
+    sound.extraTurn(goAgainChain);
+    showMoment(
+      goAgainChain > 1 ? `🍁 GO AGAIN ×${goAgainChain}` : '🍁 GO AGAIN!',
+      'again',
+      goAgainChain,
+    );
     toast(mode === 'bot' && mover === NORTH
       ? `🔁 ${LEVELS[level].name} goes again…`
       : '✨ Sweet! Last drop in your bucket — go again');
   } else {
+    goAgainChain = 0;
     if (mode === 'pass') toast(TURN_LINES.pass(state.current));
     else if (mode === 'online') {
       toast(state.current === online.myPlayer
@@ -287,43 +468,101 @@ function maybeBot() {
   }, 650);
 }
 
-function finish(status) {
+function resultScores(scores) {
+  return mode === 'online'
+    ? [scores[online.myPlayer], scores[1 - online.myPlayer]]
+    : [scores[SOUTH], scores[NORTH]];
+}
+
+function setResultScore(scores) {
+  $('res-score').textContent = `${scores[0]} – ${scores[1]}`;
+}
+
+function countUpResult(from, to, mySession) {
+  if (reducedMotion() || (from[0] === to[0] && from[1] === to[1])) {
+    setResultScore(to);
+    return;
+  }
+  const started = performance.now();
+  const duration = 650;
+  const frame = (now) => {
+    if (session !== mySession) return;
+    const progress = Math.min(1, (now - started) / duration);
+    const eased = 1 - ((1 - progress) ** 3);
+    setResultScore(from.map((score, i) => Math.round(score + (to[i] - score) * eased)));
+    if (progress < 1) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+function finish(status, { celebrate = false, scoreFrom = null } = {}) {
   if (mode !== 'online') clearSave();
   const s = status.scores;
+  const finalScores = resultScores(s);
+  const startingScores = scoreFrom ? resultScores(scoreFrom) : finalScores;
+  const gap = Math.abs(s[SOUTH] - s[NORTH]);
+  const close = gap <= 4;
   $('againBtn').classList.remove('hidden');
-  $('res-score').textContent = mode === 'online'
-    ? `${s[online.myPlayer]} – ${s[1 - online.myPlayer]}`
-    : `${s[SOUTH]} – ${s[NORTH]}`;
+  $('res-score').setAttribute('aria-label', `Final score ${finalScores[0]} to ${finalScores[1]}`);
+  setResultScore(celebrate ? startingScores : finalScores);
   if (status.tie) {
     $('res-title').textContent = 'DEAD EVEN';
-    $('res-line').textContent = 'Split the syrup 50/50, neighborly style.';
-    sound.win();
+    $('res-line').textContent = 'Two sugarmakers, one exact boil. Call it Fancy Grade Even.';
   } else if (mode === 'online') {
     if (status.winner === online.myPlayer) {
       $('res-title').textContent = 'SWEET VICTORY';
-      $('res-line').textContent = `You out-sweetened ${playerName(1 - online.myPlayer)}. Fancy Grade A stuff.`;
-      sound.win();
+      $('res-line').textContent = close
+        ? `Last drip decided it — ${playerName(1 - online.myPlayer)} nearly had the sugarhouse.`
+        : `You out-sweetened ${playerName(1 - online.myPlayer)}. Fancy Grade A stuff.`;
     } else {
       $('res-title').textContent = 'SUGARED OFF';
-      $('res-line').textContent = `${playerName(1 - online.myPlayer)} took the sugarhouse. Rematch?`;
-      sound.lose();
+      $('res-line').textContent = close
+        ? `${playerName(1 - online.myPlayer)} got the last sweet drop. Another boil?`
+        : `${playerName(1 - online.myPlayer)} took the sugarhouse. Time to fire it up again.`;
     }
   } else if (mode === 'pass') {
     $('res-title').textContent = `${playerName(status.winner).toUpperCase()} WINS`;
-    $('res-line').textContent = `${playerName(status.winner)} takes the sugarhouse. Loser stacks the cordwood.`;
-    sound.win();
+    $('res-line').textContent = close
+      ? `${playerName(status.winner)} wins by a maple whisker. Call the rematch before the pan cools.`
+      : `${playerName(status.winner)} boiled the sweeter batch. Loser stacks the cordwood.`;
   } else if (status.winner === SOUTH) {
     $('res-title').textContent = 'SWEET VICTORY';
     $('res-line').textContent = level === 'sugarmaker'
-      ? 'You out-boiled the Sugarmaker. Fancy Grade A stuff.'
-      : 'You out-boiled the Sap Run bot. Try the Sugarmaker next?';
-    sound.win();
+      ? (close
+        ? 'The Sugarmaker tips their felt hat: “Down to the last drip. Fine boil.”'
+        : 'The Sugarmaker nods: “Clean boil. You earned that Grade A.”')
+      : (close
+        ? 'Sap Run tips its tin pail: “Sweet squeaker! Ready for another?”'
+        : 'Sap Run cheers: “Sweet work! Ready for the hot sugarhouse?”');
   } else {
     $('res-title').textContent = 'SUGARED OFF';
-    $('res-line').textContent = `${LEVELS[level].name} took the sugarhouse. Rematch?`;
-    sound.lose();
+    $('res-line').textContent = level === 'sugarmaker'
+      ? (close
+        ? 'The Sugarmaker skims the pan: “One good scoop from stealing it.”'
+        : 'The Sugarmaker stokes the arch: “Good run. The next boil’s yours to steal.”')
+      : (close
+        ? 'Sap Run whistles: “That was one sticky drop apart. Again?”'
+        : 'Sap Run grins: “Found the sweet spot this time. Another boil?”');
   }
   show('result');
+  const mySession = session;
+  if (celebrate) {
+    const card = $('res-card');
+    card.classList.remove('celebrate');
+    void card.offsetWidth;
+    card.classList.add('celebrate');
+    createMapleFlourish(mySession);
+    countUpResult(startingScores, finalScores, mySession);
+    if (status.tie) sound.tie();
+    else {
+      const won = mode === 'pass'
+        || (mode === 'online' ? status.winner === online.myPlayer : status.winner === SOUTH);
+      if (won) sound.win();
+      else sound.lose();
+    }
+  }
+  ($('againBtn').classList.contains('hidden') ? $('resMenuBtn') : $('againBtn'))
+    .focus({ preventScroll: true });
 }
 
 /* ============================== preview ============================== */
@@ -355,6 +594,7 @@ for (const [pitStr, el] of Object.entries(pitEls)) {
     e.preventDefault();
     try { el.releasePointerCapture(e.pointerId); } catch { /* not captured */ }
     if (!humanCanMoveNow() || !legalMoves(state).includes(pit)) return;
+    dismissPreviewHint();
     armed = pit;
     showPreview(pit);
   });
@@ -379,7 +619,6 @@ document.addEventListener('pointerdown', () => sound.unlock(), { capture: true }
 
 /* ============================== toast ============================== */
 
-let toastTimer = 0;
 function toast(msg) {
   const el = $('toast');
   el.textContent = msg;
@@ -569,10 +808,12 @@ function updateOnlineNames() {
   // Opponent names came from the room. Keep them in textContent only.
   $('nameS').textContent = playerName(SOUTH);
   $('nameN').textContent = playerName(NORTH);
+  renderRace();
 }
 
 function enterOnlineGame(match) {
   session += 1;
+  clearTransientEffects();
   mode = 'online';
   level = null;
   online = { match, myPlayer: match.seat };
@@ -581,6 +822,7 @@ function enterOnlineGame(match) {
   view = state.pits.slice();
   busy = false;
   armed = -1;
+  goAgainChain = 0;
   document.body.classList.remove('mode-pass');
   setBoardPerspective(online.myPlayer);
   updateOnlineNames();
@@ -589,6 +831,7 @@ function enterOnlineGame(match) {
   show('game');
   renderAll();
   updateTurnUI();
+  if (state.current === online.myPlayer) showPreviewHintOnce();
   toast(state.current === online.myPlayer
     ? 'Your buckets are ready — you tap first 🍁'
     : `${playerName(state.current)} is tapping first 🍁`);
@@ -604,8 +847,10 @@ function enterOnlineGame(match) {
 
 function rebuildOnlineBoard() {
   session += 1; // cancel any local sowing animation before accepting room truth
+  clearTransientEffects();
   busy = false;
   armed = -1;
+  goAgainChain = 0;
   clearPreview();
   for (const el of Object.values(pitEls)) el.classList.remove('lift', 'flash');
   view = state.pits.slice();
@@ -615,7 +860,10 @@ function rebuildOnlineBoard() {
   renderAll();
   const status = getStatus(state);
   if (status.over) finish(status);
-  else updateTurnUI();
+  else {
+    updateTurnUI();
+    if (state.current === online.myPlayer) showPreviewHintOnce();
+  }
 }
 
 function onRemoteState(newState) {
@@ -628,6 +876,7 @@ function onRemoteStatus(status) {
   const opponent = online && online.match.opponents()[0];
   if (!opponent || !opponent.left) return;
   session += 1;
+  clearTransientEffects();
   busy = false;
   $('res-title').textContent = 'SAP CREW ENDED';
   $('res-score').textContent =
@@ -635,6 +884,7 @@ function onRemoteStatus(status) {
   $('res-line').textContent = `${opponent.name || 'Your fellow sugarmaker'} left the sugarhouse.`;
   $('againBtn').classList.add('hidden');
   show('result');
+  $('resMenuBtn').focus({ preventScroll: true });
 }
 
 function onRemotePresence(opponents) {
@@ -739,6 +989,7 @@ function show(id) {
   for (const s of ['menu', 'game', 'result']) $(s).classList.toggle('hidden', s !== id);
   if (id === 'menu') {
     session += 1; // stop any animation still running behind the menu
+    clearTransientEffects();
     busy = false;
     $('resumeBtn').classList.toggle('hidden', !loadSave());
     refreshRejoin();
@@ -758,6 +1009,7 @@ $('againBtn').addEventListener('click', () => {
   else startGame(mode, level);
 });
 $('resMenuBtn').addEventListener('click', () => backToMenu($('resMenuBtn')));
+$('previewHintClose').addEventListener('click', dismissPreviewHint);
 
 $('mute').addEventListener('click', () => {
   sound.unlock();
