@@ -36,6 +36,7 @@ Plain static site — no build step. `index.html` + `style.css` + ES modules in 
 | `js/bot.js` | the two bots; only ever calls the engine's public API |
 | `js/main.js` | UI: board DOM, the sowing animation, landing preview, save/resume |
 | `js/audio.js` | procedural WebAudio sfx, no audio files |
+| `js/leaderboard.js` | monthly leaderboard client (Supabase); vs-bot wins only, no accounts |
 
 Every push to `main` deploys to GitHub Pages via `.github/workflows/deploy.yml`.
 
