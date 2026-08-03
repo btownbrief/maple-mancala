@@ -9,6 +9,10 @@ import {
 } from './engine.js';
 import { chooseMove, LEVELS } from './bot.js';
 import { OnlineMatch, savedSession, clearSession, getName } from './rooms.js';
+import {
+  lbEnabled, fetchTop, submitScore, renamePlayer, monthLabel,
+  getName as lbGetName, playerId as lbPlayerId,
+} from './leaderboard.js';
 
 const $ = (id) => document.getElementById(id);
 const LS_SAVE = 'maple-mancala.save';
@@ -297,6 +301,7 @@ function startGame(newMode, newLevel, resumed = null) {
   armed = -1;
   goAgainChain = 0;
 
+  resetLbPanel();
   document.body.classList.toggle('mode-pass', mode === 'pass');
   setBoardPerspective(SOUTH);
   $('nameS').textContent = playerName(SOUTH);
@@ -495,6 +500,120 @@ function countUpResult(from, to, mySession) {
   requestAnimationFrame(frame);
 }
 
+/* ------------------------------------------------------------- leaderboard */
+// Monthly board for vs-bot wins only. Score = candy margin in your bucket,
+// +1000 for Sugarmaker wins so any Sugarmaker win outranks any Sap Run win.
+
+const lbBox = $('lb');
+const lbList = $('lbList');
+const lbStatusEl = $('lbStatus');
+const lbForm = $('lbForm');
+const lbNameInput = $('lbNameInput');
+const lbThisBtn = $('lbThisBtn');
+const lbLastBtn = $('lbLastBtn');
+const lbRenameBtn = $('lbRenameBtn');
+let lbMonthOffset = 0;
+
+if (lbEnabled()) {
+  lbThisBtn.textContent = `🏆 ${monthLabel(0)}`;
+  lbLastBtn.textContent = monthLabel(-1);
+}
+
+function resetLbPanel() {
+  lbBox.classList.add('hidden');
+  lbForm.classList.add('hidden');
+  lbForm.dataset.pendingScore = '';
+}
+
+function botWinScore(status) {
+  const margin = status.scores[SOUTH] - status.scores[NORTH];
+  return level === 'sugarmaker' ? 1000 + margin : margin;
+}
+
+// s >= 1000 means a Sugarmaker win (margin = s - 1000); otherwise a Sap Run win
+function lbScoreLabel(s) {
+  return s >= 1000 ? `🔥 +${s - 1000} candies` : `🌱 +${s} candies`;
+}
+
+// score > 0 submits a fresh win; score 0 just shows the standings read-only
+async function updateLeaderboard(score) {
+  if (!lbEnabled()) return;
+  lbBox.classList.remove('hidden');
+  if (score > 0 && !lbGetName()) {
+    // first win with no saved name: hold the score until they pick one
+    lbForm.classList.remove('hidden');
+    lbRenameBtn.classList.add('hidden');
+    lbStatusEl.textContent = 'Pick a name to join the monthly leaderboard!';
+    lbList.innerHTML = '';
+    lbForm.dataset.pendingScore = String(score);
+    return;
+  }
+  if (score > 0) {
+    try { await submitScore(score); } catch { /* offline — still show the board */ }
+  }
+  renderLbBoard();
+}
+
+async function renderLbBoard() {
+  lbForm.classList.add('hidden');
+  lbRenameBtn.classList.remove('hidden');
+  lbStatusEl.textContent = 'Loading…';
+  try {
+    const rows = await fetchTop(lbMonthOffset);
+    const me = lbPlayerId();
+    lbList.innerHTML = '';
+    rows.slice(0, 10).forEach((r, i) => {
+      const li = document.createElement('li');
+      if (r.player_id === me) li.className = 'me';
+      const medal = ['🥇', '🥈', '🥉'][i];
+      li.innerHTML = '<span class="rank"></span><span class="nm"></span><span class="sc"></span>';
+      li.querySelector('.rank').textContent = medal || `${i + 1}.`;
+      li.querySelector('.nm').textContent = r.name;
+      li.querySelector('.sc').textContent = lbScoreLabel(r.score);
+      lbList.appendChild(li);
+    });
+    const myRank = rows.findIndex((r) => r.player_id === me);
+    lbStatusEl.textContent = rows.length === 0
+      ? 'No scores yet this month — be the first!'
+      : myRank >= 0 ? `You're #${myRank + 1} of ${rows.length} this month` : '';
+  } catch {
+    lbStatusEl.textContent = 'Leaderboard unavailable (offline?)';
+  }
+}
+
+$('lbSaveBtn').addEventListener('click', async () => {
+  const name = lbNameInput.value.trim();
+  if (!name) { lbNameInput.focus(); return; }
+  const pending = Number(lbForm.dataset.pendingScore || 0);
+  lbForm.dataset.pendingScore = '';
+  try {
+    await renamePlayer(name); // saves locally + renames any existing rows
+    if (pending > 0) await submitScore(pending);
+  } catch { /* offline — the name is still saved locally */ }
+  renderLbBoard();
+});
+lbNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') $('lbSaveBtn').click();
+});
+lbRenameBtn.addEventListener('click', () => {
+  lbNameInput.value = lbGetName();
+  lbForm.classList.remove('hidden');
+  lbRenameBtn.classList.add('hidden');
+  lbNameInput.focus();
+});
+lbThisBtn.addEventListener('click', () => {
+  lbMonthOffset = 0;
+  lbThisBtn.classList.add('sel');
+  lbLastBtn.classList.remove('sel');
+  renderLbBoard();
+});
+lbLastBtn.addEventListener('click', () => {
+  lbMonthOffset = -1;
+  lbLastBtn.classList.add('sel');
+  lbThisBtn.classList.remove('sel');
+  renderLbBoard();
+});
+
 function finish(status, { celebrate = false, scoreFrom = null } = {}) {
   if (mode !== 'online') clearSave();
   const s = status.scores;
@@ -545,6 +664,13 @@ function finish(status, { celebrate = false, scoreFrom = null } = {}) {
         : 'Sap Run grins: “Found the sweet spot this time. Another boil?”');
   }
   show('result');
+  if (mode === 'bot') {
+    // Submit only on a fresh (celebrated) human win, exactly once per game:
+    // bot-mode finish() is reached solely from play()'s game-over path with
+    // celebrate:true. Losses and ties still show the standings read-only.
+    const humanWon = celebrate && !status.tie && status.winner === SOUTH;
+    updateLeaderboard(humanWon ? botWinScore(status) : 0);
+  }
   const mySession = session;
   if (celebrate) {
     const card = $('res-card');
@@ -823,6 +949,7 @@ function enterOnlineGame(match) {
   busy = false;
   armed = -1;
   goAgainChain = 0;
+  resetLbPanel();
   document.body.classList.remove('mode-pass');
   setBoardPerspective(online.myPlayer);
   updateOnlineNames();
